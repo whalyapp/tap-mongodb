@@ -193,6 +193,7 @@ def get_streams_to_sync(streams, state):
 
     # get selected streams
     selected_streams = [s for s in streams if is_stream_selected(s)]
+    LOGGER.info('Selected streams %s', selected_streams)
     # prioritize streams that have not been processed
     streams_with_state = []
     streams_without_state = []
@@ -344,6 +345,7 @@ def do_sync(client, catalog, state):
     streams_to_sync = get_streams_to_sync(all_streams, state)
 
     for stream in streams_to_sync:
+        LOGGER.info('Syncing %s', stream)
         sync_stream(client, stream, state)
 
     LOGGER.info(common.get_sync_summary(catalog))
