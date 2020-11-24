@@ -13,6 +13,8 @@ from terminaltables import AsciiTable
 import pytz
 import tzlocal
 
+LOGGER = singer.get_logger()
+
 INCLUDE_SCHEMAS_IN_DESTINATION_STREAM_NAME = False
 UPDATE_BOOKMARK_PERIOD = 1000
 COUNTS = {}
@@ -183,6 +185,8 @@ def row_to_singer_record(stream, row, version, time_extracted):
 def add_to_any_of(schema, value):
     changed = False
 
+    #LOGGER.info("Analyzing value: %s in schema: %s", value, schema)
+
     if isinstance(value, (bson_datetime.datetime, timestamp.Timestamp, datetime.datetime)):
         has_date = False
         for field_schema_entry in schema:
@@ -256,7 +260,7 @@ def add_to_any_of(schema, value):
         has_list = False
 
         # get pointer to list's anyOf schema and see if list schema already existed
-        list_schema = {"type": "array", "items": {"anyOf": [{}]}}
+        list_schema = {"type": "array", "items": {"anyOf": []}}
         for field_schema_entry in schema:
             if field_schema_entry.get('type') == 'array':
                 list_schema = field_schema_entry
@@ -273,6 +277,36 @@ def add_to_any_of(schema, value):
         # if it changed and didn't exist, insert it
         if not has_list and list_entry_changed:
             schema.insert(-1, list_schema)
+    elif isinstance(value, str):
+        has_string = False
+
+        #LOGGER.info("value: %s is a string!", value)
+
+        string_schema = {"type": "string"}
+
+        for field_schema_entry in schema:
+            if field_schema_entry.get('type') == 'string':
+                string_schema = field_schema_entry
+                has_string = True
+
+        if not has_string:
+            schema.insert(-1, string_schema)
+            changed = True
+    elif isinstance(value, int):
+        has_int = False
+
+        #LOGGER.info("value: %s is a int!", value)
+
+        number_schema = {"type": "number"}
+
+        for field_schema_entry in schema:
+            if field_schema_entry.get('type') == 'number':
+                number_schema = field_schema_entry
+                has_int = True
+
+        if not has_int:
+            schema.insert(-1, number_schema)
+            changed = True
     return changed
 
 def row_to_schema(schema, row):
@@ -285,11 +319,13 @@ def row_to_schema(schema, row):
                               bson.decimal128.Decimal128,
                               float,
                               dict,
-                              list)):
+                              list,
+                              str,
+                              int)):
 
             # get pointer to field's anyOf list
             if not schema.get('properties', {}).get(field):
-                schema['properties'][field] = {'anyOf': [{}]}
+                schema['properties'][field] = {'anyOf': []}
             anyof_schema = schema['properties'][field]['anyOf']
 
             # add value's schema to anyOf list
